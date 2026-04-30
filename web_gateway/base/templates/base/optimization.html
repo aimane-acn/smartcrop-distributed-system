@@ -1,0 +1,122 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0 fw-bold">Optimization & IoT Hub</h2>
+        <div class="d-flex gap-2">
+            <form action="{% url 'reset_iot_data' %}" method="POST" onsubmit="return confirm('Etes-vous sur de vouloir supprimer tout l\'historique IoT ?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger rounded-pill shadow-sm">
+                    <i class="bi bi-trash me-2"></i> Reset
+                </button>
+            </form>
+            <button class="btn btn-nature rounded-pill shadow-sm" onclick="location.reload()">
+                <i class="bi bi-arrow-clockwise me-2"></i> Refresh Data
+            </button>
+        </div>
+    </div>
+
+    <!-- Top KPI Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="eco-card p-4 h-100 text-center">
+                <div class="rounded-circle bg-danger bg-opacity-10 d-inline-flex p-3 mb-3">
+                    <i class="bi bi-thermometer-sun text-danger fs-3"></i>
+                </div>
+                <h6 class="text-muted text-uppercase small fw-bold mb-1">Avg Temperature</h6>
+                <h3 class="fw-bold mb-0">{{ avg_temp }}°C</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="eco-card p-4 h-100 text-center">
+                <div class="rounded-circle bg-info bg-opacity-10 d-inline-flex p-3 mb-3">
+                    <i class="bi bi-cloud-drizzle text-info fs-3"></i>
+                </div>
+                <h6 class="text-muted text-uppercase small fw-bold mb-1">Avg Air Humidity</h6>
+                <h3 class="fw-bold mb-0">{{ avg_hum }}%</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="eco-card p-4 h-100 text-center">
+                <div class="rounded-circle bg-warning bg-opacity-10 d-inline-flex p-3 mb-3">
+                    <i class="bi bi-moisture text-warning fs-3"></i>
+                </div>
+                <h6 class="text-muted text-uppercase small fw-bold mb-1">Avg Soil Moisture</h6>
+                <h3 class="fw-bold mb-0">{{ avg_soil }}%</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- AI Prediction Card -->
+        <div class="col-lg-5">
+            <div class="eco-card p-0 overflow-hidden h-100 border-0 shadow-lg">
+                <div class="bg-gradient-primary p-5 text-white text-center position-relative">
+                    <div class="position-absolute top-0 end-0 p-3 opacity-50">
+                        <i class="bi bi-robot fs-1"></i>
+                    </div>
+                    <span class="badge bg-white text-primary rounded-pill px-3 py-2 mb-3 shadow-sm text-uppercase fw-bold letter-spacing-1">
+                        <i class="bi bi-stars me-1"></i> ML Prediction
+                    </span>
+                    <h5 class="fw-light mb-1">Predicted Water Need</h5>
+                    <h1 class="display-3 fw-bold mb-0">{{ predicted_water|floatformat:2 }} <span class="fs-4">Liters</span></h1>
+                    <p class="opacity-75 small mt-2 mb-0">For the next 7 days based on IoT history</p>
+                </div>
+                <div class="p-4">
+                    <h6 class="fw-bold mb-3"><i class="bi bi-gear-fill text-muted me-2"></i> ML Model Insights</h6>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2 text-muted small"><i class="bi bi-check-circle-fill text-primary me-2"></i> Model uses historical weather metrics</li>
+                        <li class="mb-2 text-muted small"><i class="bi bi-check-circle-fill text-primary me-2"></i> High temperature increases water need</li>
+                        <li class="mb-2 text-muted small"><i class="bi bi-check-circle-fill text-primary me-2"></i> Current moisture level is factored in</li>
+                        <li class="text-muted small"><i class="bi bi-check-circle-fill text-primary me-2"></i> Recommended action: Schedule irrigation</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- IoT History Table -->
+        <div class="col-lg-7">
+            <div class="eco-card p-0 h-100">
+                <div class="p-4 border-bottom">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-list-columns-reverse text-primary me-2"></i> Recent IoT Telemetry</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="text-muted text-uppercase small fw-bold border-0 p-3">Time</th>
+                                <th class="text-muted text-uppercase small fw-bold border-0 p-3">Temp</th>
+                                <th class="text-muted text-uppercase small fw-bold border-0 p-3">Humidity</th>
+                                <th class="text-muted text-uppercase small fw-bold border-0 p-3">Moisture</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in sensor_history %}
+                            <tr>
+                                <td class="p-3 text-muted small">{{ item.timestamp|date:"M d, H:i" }}</td>
+                                <td class="p-3 fw-bold">{{ item.temperature }}°C</td>
+                                <td class="p-3 fw-bold">{{ item.humidity }}%</td>
+                                <td class="p-3 fw-bold">{{ item.soil_moisture }}%</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center p-5 text-muted">No IoT data received yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+    }
+    .letter-spacing-1 {
+        letter-spacing: 1px;
+    }
+</style>
+{% endblock %}

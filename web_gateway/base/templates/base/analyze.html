@@ -1,0 +1,93 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="fw-bold mb-0">Plant Disease Scanner</h2>
+            <p class="text-muted">Upload an image of a plant leaf to get an instant AI diagnosis and treatment plan.</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8 mx-auto">
+            <div class="eco-card p-5 text-center">
+                {% if image_url %}
+                    <div class="animate-fade-in">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <img src="{{ image_url }}" class="rounded-4 shadow-sm img-fluid border border-primary border-opacity-25" style="max-height: 350px;">
+                            </div>
+                            <div class="col-md-6 text-start ps-md-4 mt-4 mt-md-0">
+                                <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3 py-2 mb-3">AI Diagnosis Complete</span>
+                                <h2 class="fw-bold mb-1 {% if 'healthy' in result|lower %}text-success{% else %}text-danger{% endif %}">
+                                    {{ result }}
+                                </h2>
+                                <p class="text-muted mb-2">Confidence level: High</p>
+                                
+                                {% if disease_type and treatment %}
+                                <div class="mt-3 mb-4 p-3 rounded bg-light border-start border-4 {% if 'healthy' in result|lower %}border-success{% else %}border-warning{% endif %}">
+                                    <h6 class="fw-bold mb-1"><i class="bi bi-info-circle text-primary"></i> Disease Type</h6>
+                                    <p class="small text-muted mb-2">{{ disease_type }}</p>
+                                    
+                                    <h6 class="fw-bold mb-1"><i class="bi bi-heart-pulse text-danger"></i> Treatment Recommendation</h6>
+                                    <p class="small text-muted mb-0">{{ treatment }}</p>
+                                </div>
+                                {% endif %}
+                                
+                                <a href="{% url 'analyze_image' %}" class="btn btn-nature w-100">
+                                    <i class="bi bi-arrow-repeat me-2"></i> Scan Another Plant
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <form method="post" enctype="multipart/form-data" class="upload-area">
+                        {% csrf_token %}
+                        <div class="upload-zone p-5 rounded-4 border-2 border-dashed border-primary bg-primary bg-opacity-10 mb-4 position-relative" style="border-style: dashed; min-height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                            <div id="uploadContent">
+                                <i id="uploadIcon" class="bi bi-cloud-upload display-3 text-primary mb-3 d-block"></i>
+                                <h5 id="uploadText" class="fw-bold text-primary">Click or Drop Image Here</h5>
+                                <p id="uploadSubtext" class="text-muted small">Supports JPG, PNG (Max 5MB)</p>
+                            </div>
+                            
+                            <img id="imagePreview" src="#" alt="Preview" class="rounded-4 shadow-sm" style="display: none; max-height: 220px; max-width: 100%; object-fit: contain; z-index: 10;">
+                            
+                            <input type="file" name="image" id="imageInput" class="position-absolute top-0 start-0 w-100 h-100 opacity-0 cursor-pointer" style="z-index: 20;" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-nature btn-lg px-5 shadow-lg">
+                            <i class="bi bi-magic me-2"></i> Analyze Image
+                        </button>
+                    </form>
+                    
+                    <script>
+                        document.getElementById('imageInput').addEventListener('change', function(event) {
+                            var input = event.target;
+                            if (input.files && input.files[0]) {
+                                var reader = new FileReader();
+                                reader.onload = function(e) {
+                                    var preview = document.getElementById('imagePreview');
+                                    var uploadContent = document.getElementById('uploadContent');
+                                    
+                                    preview.src = e.target.result;
+                                    preview.style.display = 'block';
+                                    uploadContent.style.display = 'none';
+                                }
+                                reader.readAsDataURL(input.files[0]);
+                            }
+                        });
+                    </script>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Upload Zone Hover Effect */
+    .cursor-pointer { cursor: pointer; }
+    .upload-zone:hover { background-color: rgba(37, 99, 235, 0.08) !important; transition: 0.3s; }
+</style>
+{% endblock %}

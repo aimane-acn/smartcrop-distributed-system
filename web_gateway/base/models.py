@@ -16,7 +16,22 @@ class History(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     image = models.ImageField(upload_to="history_images/")
     result = models.TextField()
+    disease_type = models.CharField(max_length=100, null=True, blank=True)
+    treatment = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
+
+class SensorData(models.Model):
+    device_id = models.CharField(max_length=100)
+    temperature = models.FloatField()
+    humidity = models.FloatField()
+    soil_moisture = models.FloatField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.device_id} - {self.timestamp}"

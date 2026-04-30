@@ -5,9 +5,17 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="mb-0">Analysis Log</h2>
-        <button class="btn btn-outline-success rounded-pill" onclick="window.print()">
-            <i class="bi bi-printer me-2"></i> Print Report
-        </button>
+        <div class="d-flex gap-2">
+            <form action="{% url 'clear_all_history' %}" method="post" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer tout l\'historique ?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger rounded-pill">
+                    <i class="bi bi-trash me-2"></i> Clear All
+                </button>
+            </form>
+            <button class="btn btn-outline-primary rounded-pill" onclick="window.print()">
+                <i class="bi bi-printer me-2"></i> Print Report
+            </button>
+        </div>
     </div>
 
     <div class="eco-card p-0">
@@ -32,13 +40,20 @@
                         </td>
                         <td class="p-4">
                             {% if 'healthy' in item.result|lower %}
-                                <span class="badge rounded-pill bg-success bg-opacity-10 text-success px-3 py-2 border border-success border-opacity-25">
+                                <span class="badge rounded-pill bg-success bg-opacity-10 text-success px-3 py-2 border border-success border-opacity-25 mb-2">
                                     <i class="bi bi-check-circle me-1"></i> {{ item.result }}
                                 </span>
                             {% else %}
-                                <span class="badge rounded-pill bg-danger bg-opacity-10 text-danger px-3 py-2 border border-danger border-opacity-25">
+                                <span class="badge rounded-pill bg-danger bg-opacity-10 text-danger px-3 py-2 border border-danger border-opacity-25 mb-2">
                                     <i class="bi bi-exclamation-triangle me-1"></i> {{ item.result }}
                                 </span>
+                            {% endif %}
+                            
+                            {% if item.disease_type and item.treatment %}
+                            <div class="small mt-2">
+                                <strong>Type:</strong> <span class="text-muted">{{ item.disease_type }}</span><br>
+                                <strong>Treatment:</strong> <span class="text-muted">{{ item.treatment|truncatechars:50 }}</span>
+                            </div>
                             {% endif %}
                         </td>
                         <td class="p-4 text-muted fw-medium">
@@ -51,25 +66,6 @@
                             </button>
                         </td>
                     </tr>
-
-                    <div class="modal fade" id="del{{ item.id }}" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content rounded-4 border-0">
-                                <div class="modal-body text-center p-5">
-                                    <i class="bi bi-trash text-danger display-4 mb-3 d-block"></i>
-                                    <h4 class="fw-bold">Delete this record?</h4>
-                                    <p class="text-muted">This action cannot be undone.</p>
-                                    <div class="d-flex justify-content-center gap-2 mt-4">
-                                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
-                                        <form action="{% url 'delete_history' item.id %}" method="post">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-danger rounded-pill px-4">Delete</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                     {% empty %}
                     <tr><td colspan="4" class="text-center p-5 text-muted">No records found.</td></tr>
                     {% endfor %}
@@ -82,11 +78,11 @@
             <nav>
                 <ul class="pagination justify-content-center mb-0">
                     {% if items.has_previous %}
-                    <li class="page-item"><a class="page-link border-0 text-success fw-bold" href="?page={{ items.previous_page_number }}">Previous</a></li>
+                    <li class="page-item"><a class="page-link border-0 text-primary fw-bold" href="?page={{ items.previous_page_number }}">Previous</a></li>
                     {% endif %}
                     <li class="page-item disabled"><span class="page-link border-0 text-muted">Page {{ items.number }}</span></li>
                     {% if items.has_next %}
-                    <li class="page-item"><a class="page-link border-0 text-success fw-bold" href="?page={{ items.next_page_number }}">Next</a></li>
+                    <li class="page-item"><a class="page-link border-0 text-primary fw-bold" href="?page={{ items.next_page_number }}">Next</a></li>
                     {% endif %}
                 </ul>
             </nav>
@@ -94,4 +90,27 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Render modals completely outside the eco-card and container to prevent CSS conflicts -->
+{% for item in items %}
+<div class="modal fade" id="del{{ item.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+            <div class="modal-body text-center p-5">
+                <i class="bi bi-trash text-danger display-4 mb-3 d-block"></i>
+                <h4 class="fw-bold">Delete this record?</h4>
+                <p class="text-muted">This action cannot be undone.</p>
+                <div class="d-flex justify-content-center gap-2 mt-4">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <form action="{% url 'delete_history' item.id %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger rounded-pill px-4">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
 {% endblock %}

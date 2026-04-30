@@ -40,6 +40,11 @@ class PlantServiceStub(object):
                 request_serializer=plant__pb2.PlantRequest.SerializeToString,
                 response_deserializer=plant__pb2.PlantResponse.FromString,
                 _registered_method=True)
+        self.PredictWaterNeed = channel.unary_unary(
+                '/PlantService/PredictWaterNeed',
+                request_serializer=plant__pb2.WaterRequest.SerializeToString,
+                response_deserializer=plant__pb2.WaterResponse.FromString,
+                _registered_method=True)
 
 
 class PlantServiceServicer(object):
@@ -52,6 +57,12 @@ class PlantServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PredictWaterNeed(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_PlantServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -59,6 +70,11 @@ def add_PlantServiceServicer_to_server(servicer, server):
                     servicer.PredictDisease,
                     request_deserializer=plant__pb2.PlantRequest.FromString,
                     response_serializer=plant__pb2.PlantResponse.SerializeToString,
+            ),
+            'PredictWaterNeed': grpc.unary_unary_rpc_method_handler(
+                    servicer.PredictWaterNeed,
+                    request_deserializer=plant__pb2.WaterRequest.FromString,
+                    response_serializer=plant__pb2.WaterResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -89,6 +105,33 @@ class PlantService(object):
             '/PlantService/PredictDisease',
             plant__pb2.PlantRequest.SerializeToString,
             plant__pb2.PlantResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PredictWaterNeed(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/PlantService/PredictWaterNeed',
+            plant__pb2.WaterRequest.SerializeToString,
+            plant__pb2.WaterResponse.FromString,
             options,
             channel_credentials,
             insecure,

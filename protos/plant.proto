@@ -4,6 +4,7 @@ syntax = "proto3";
 // hadi kandiro fiha function li hatakhud req ou t3ti repo
 service PlantService {
   rpc PredictDisease (PlantRequest) returns (PlantResponse);
+  rpc PredictWaterNeed (WaterRequest) returns (WaterResponse);
 }
 
 // hna massage dial client li tswira 3ibara ela bytes
@@ -15,4 +16,18 @@ message PlantRequest {
 message PlantResponse {
   string prediction = 1;
   float confidence = 2; 
+  string disease_type = 3;
+  string treatment = 4;
+}
+
+// Request for water prediction based on IoT data
+message WaterRequest {
+  float avg_temperature = 1;
+  float avg_humidity = 2;
+  float avg_soil_moisture = 3;
+}
+
+// Response for water prediction
+message WaterResponse {
+  float predicted_water_liters = 1;
 }

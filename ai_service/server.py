@@ -10,6 +10,7 @@ from PIL import Image
 # Import the generated gRPC code (Now in the same folder!)
 import plant_pb2
 import plant_pb2_grpc
+from disease_info import DISEASE_INFO
 
 # --- CONFIGURATION ---
 # katshuf wash 3ndk gpu cuda(nvidia) hit models kaytrunaw faster fiha ila la sir l cpu
@@ -86,15 +87,41 @@ class PlantService(plant_pb2_grpc.PlantServiceServicer):
             prediction_text = CLASS_NAMES[index.item()]
             confidence_score = confidence.item()
             
-            print(f"Prediction: {prediction_text} ({confidence_score:.2f})")
+            # Fetch disease info
+            disease_info = DISEASE_INFO.get(prediction_text, {'type': 'Unknown', 'treatment': 'No recommendation available.'})
+            disease_type = disease_info['type']
+            treatment = disease_info['treatment']
+            
+            print(f"Prediction: {prediction_text} ({confidence_score:.2f}), Type: {disease_type}")
 
             return plant_pb2.PlantResponse(
                 prediction=prediction_text, 
-                confidence=confidence_score
+                confidence=confidence_score,
+                disease_type=disease_type,
+                treatment=treatment
             )
         except Exception as e:
             print(f"❌ Error processing request: {e}")
-            return plant_pb2.PlantResponse(prediction="Error", confidence=0.0)
+            return plant_pb2.PlantResponse(prediction="Error", confidence=0.0, disease_type="Unknown", treatment="None")
+
+    def PredictWaterNeed(self, request, context):
+        print(f"Received Water Prediction Request: Temp={request.avg_temperature}, Hum={request.avg_humidity}, Soil={request.avg_soil_moisture}")
+        
+        # Simple heuristic ML simulation for predicting water needs in Liters per week
+        # In a real scenario, this would be a loaded scikit-learn or PyTorch model
+        # Base water need: 5L. High temp increases need, high humidity decreases, high moisture decreases.
+        base_water = 5.0
+        temp_factor = request.avg_temperature * 0.2
+        humidity_factor = request.avg_humidity * 0.05
+        moisture_factor = request.avg_soil_moisture * 0.1
+        
+        predicted_water = base_water + temp_factor - humidity_factor - moisture_factor
+        
+        # Ensure it doesn't drop below 0
+        predicted_water = max(0.0, round(predicted_water, 2))
+        
+        print(f"Predicted water need: {predicted_water} L")
+        return plant_pb2.WaterResponse(predicted_water_liters=predicted_water)
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))

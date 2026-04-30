@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bplant.proto\"\x1d\n\x0cPlantRequest\x12\r\n\x05image\x18\x01 \x01(\x0c\"7\n\rPlantResponse\x12\x12\n\nprediction\x18\x01 \x01(\t\x12\x12\n\nconfidence\x18\x02 \x01(\x02\x32?\n\x0cPlantService\x12/\n\x0ePredictDisease\x12\r.PlantRequest\x1a\x0e.PlantResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bplant.proto\"\x1d\n\x0cPlantRequest\x12\r\n\x05image\x18\x01 \x01(\x0c\"`\n\rPlantResponse\x12\x12\n\nprediction\x18\x01 \x01(\t\x12\x12\n\nconfidence\x18\x02 \x01(\x02\x12\x14\n\x0c\x64isease_type\x18\x03 \x01(\t\x12\x11\n\ttreatment\x18\x04 \x01(\t\"X\n\x0cWaterRequest\x12\x17\n\x0f\x61vg_temperature\x18\x01 \x01(\x02\x12\x14\n\x0c\x61vg_humidity\x18\x02 \x01(\x02\x12\x19\n\x11\x61vg_soil_moisture\x18\x03 \x01(\x02\"/\n\rWaterResponse\x12\x1e\n\x16predicted_water_liters\x18\x01 \x01(\x02\x32r\n\x0cPlantService\x12/\n\x0ePredictDisease\x12\r.PlantRequest\x1a\x0e.PlantResponse\x12\x31\n\x10PredictWaterNeed\x12\r.WaterRequest\x1a\x0e.WaterResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -34,7 +34,11 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_PLANTREQUEST']._serialized_start=15
   _globals['_PLANTREQUEST']._serialized_end=44
   _globals['_PLANTRESPONSE']._serialized_start=46
-  _globals['_PLANTRESPONSE']._serialized_end=101
-  _globals['_PLANTSERVICE']._serialized_start=103
-  _globals['_PLANTSERVICE']._serialized_end=166
+  _globals['_PLANTRESPONSE']._serialized_end=142
+  _globals['_WATERREQUEST']._serialized_start=144
+  _globals['_WATERREQUEST']._serialized_end=232
+  _globals['_WATERRESPONSE']._serialized_start=234
+  _globals['_WATERRESPONSE']._serialized_end=281
+  _globals['_PLANTSERVICE']._serialized_start=283
+  _globals['_PLANTSERVICE']._serialized_end=397
 # @@protoc_insertion_point(module_scope)

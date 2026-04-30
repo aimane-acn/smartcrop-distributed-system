@@ -12,6 +12,12 @@ urlpatterns = [
     path("edit-profile/", views.edit_profile, name="edit_profile"),
     path("history/", views.history, name="history"),
     path("history/delete/<int:pk>/", views.delete_history, name="delete_history"),
+    path("history/clear/", views.clear_all_history, name="clear_all_history"),
+    path("analyze/", views.analyze_image, name="analyze_image"),
+    path("api/iot-data/", views.iot_data_ingest, name="iot_data_ingest"),
+    path("iot-data/", views.iot_data_ingest, name="iot_data_ingest_root"),
+    path("optimization/", views.optimization_dashboard, name="optimization"),
+    path("optimization/reset/", views.reset_iot_data, name="reset_iot_data"),
 ]
 
 if settings.DEBUG:
