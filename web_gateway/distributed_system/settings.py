@@ -124,7 +124,16 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+if IS_VERCEL:
+    MEDIA_ROOT = Path('/tmp/media')
+    try:
+        MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+else:
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 
 # FIX 3: Add this for Render to know where to collect static files
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')

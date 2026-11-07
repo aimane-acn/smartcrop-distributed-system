@@ -4,6 +4,9 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.files.storage import FileSystemStorage
 from django.core.paginator import Paginator
+from django.conf import settings
+import os
+import base64
 import grpc
 import json
 from django.http import JsonResponse
@@ -85,18 +88,34 @@ def analyze_image(request):
     if request.method == "POST" and request.FILES.get("image"):
         image = request.FILES["image"]
 
-        fs = FileSystemStorage()
-        filename = fs.save(image.name, image)
-        image_url = fs.url(filename)
+        # 1. Safe storage handling for Serverless / Vercel
+        filename = image.name
+        try:
+            fs = FileSystemStorage(location=settings.MEDIA_ROOT, base_url=settings.MEDIA_URL)
+            filename = fs.save(image.name, image)
+            image_url = fs.url(filename)
+        except Exception as e:
+            print("File save warning:", e)
+            filename = image.name
 
         image.seek(0)
         image_bytes = image.read()
 
+        # 2. Base64 Preview: Guarantees the uploaded image renders in the browser on Vercel
         try:
-            with grpc.insecure_channel('localhost:50051') as channel:
+            encoded = base64.b64encode(image_bytes).decode('utf-8')
+            c_type = getattr(image, 'content_type', None) or 'image/jpeg'
+            image_url = f"data:{c_type};base64,{encoded}"
+        except Exception:
+            pass
+
+        # 3. Call gRPC service (with timeout and fallback message)
+        grpc_host = os.environ.get('GRPC_AI_HOST', 'localhost:50051')
+        try:
+            with grpc.insecure_channel(grpc_host) as channel:
                 stub = plant_pb2_grpc.PlantServiceStub(channel)
                 grpc_request = plant_pb2.PlantRequest(image=image_bytes)
-                grpc_response = stub.PredictDisease(grpc_request)
+                grpc_response = stub.PredictDisease(grpc_request, timeout=3)
 
                 confidence_percent = int(grpc_response.confidence * 100)
                 result = f"{grpc_response.prediction} ({confidence_percent}%)"
@@ -104,16 +123,21 @@ def analyze_image(request):
                 treatment = grpc_response.treatment
 
         except Exception as e:
-            result = "Error: AI Server unreachable"
-            print(e)
+            result = "AI Model Unreachable (gRPC offline)"
+            disease_type = "Distributed AI Service"
+            treatment = "The PyTorch AI inference runs in a separate gRPC microservice (ai_service/server.py). Connect your AI server URL or run it locally to see real-time disease detections."
+            print("gRPC error:", e)
 
-        History.objects.create(
-            user=request.user,
-            image=filename,
-            result=result,
-            disease_type=disease_type,
-            treatment=treatment
-        )
+        try:
+            History.objects.create(
+                user=request.user,
+                image=filename,
+                result=result,
+                disease_type=disease_type,
+                treatment=treatment
+            )
+        except Exception as e:
+            print("History save warning:", e)
 
     profile = request.user.profile
     return render(request, 'base/analyze.html', {
@@ -264,20 +288,31 @@ def optimization_dashboard(request):
     else:
         avg_temp, avg_hum, avg_soil = 25.0, 50.0, 40.0
 
-    predicted_water = 0.0
+    # Linear Regression Formula for Water Need (7-day forecast in Liters):
+    # base_water = 5.0L + (Temp * 0.2) - (Hum * 0.05) - (Moisture * 0.1)
+    base_water = 5.0
+    temp_factor = avg_temp * 0.2
+    humidity_factor = avg_hum * 0.05
+    moisture_factor = avg_soil * 0.1
+    calculated_water = round(max(0.5, base_water + temp_factor - humidity_factor - moisture_factor), 2)
+    predicted_water = calculated_water
 
+    # If gRPC server is available, fetch live prediction
     try:
-        with grpc.insecure_channel('localhost:50051') as channel:
+        grpc_host = os.environ.get('GRPC_AI_HOST', 'localhost:50051')
+        with grpc.insecure_channel(grpc_host) as channel:
             stub = plant_pb2_grpc.PlantServiceStub(channel)
             grpc_req = plant_pb2.WaterRequest(
                 avg_temperature=avg_temp,
                 avg_humidity=avg_hum,
                 avg_soil_moisture=avg_soil
             )
-            grpc_res = stub.PredictWaterNeed(grpc_req)
-            predicted_water = grpc_res.predicted_water_liters
+            grpc_res = stub.PredictWaterNeed(grpc_req, timeout=2)
+            if grpc_res.predicted_water_liters > 0:
+                predicted_water = grpc_res.predicted_water_liters
     except Exception as e:
-        print("gRPC error:", e)
+        # Fallback to local linear regression formula
+        predicted_water = calculated_water
 
     return render(request, 'base/optimization.html', {
         'sensor_history': sensor_history,
