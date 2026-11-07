@@ -1,10 +1,30 @@
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
+# Virtual environments
 venv/
+env/
+.venv/
+myenv/
+*/venv/
+*/env/
+*/.venv/
+*/myenv/
 
+# Database & media
+*.sqlite3
 db.sqlite3
+web_gateway/media/*
+!web_gateway/media/.gitkeep
 
+# Models
 *.pth
+*.pt
+*.h5
 
+# Editor & OS files
 .vscode/
+.idea/
+.DS_Store
+Thumbs.db
