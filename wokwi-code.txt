@@ -1,0 +1,106 @@
+import json
+import time
+import machine
+import dht
+import network
+import urequests
+
+
+# --- Configuration Réseau & API ---
+WIFI_SSID = "Wokwi-GUEST"
+WIFI_PASSWORD = ""
+
+# localtunnel
+API_URL = "https://eager-tables-act.loca.lt/iot-data/"
+
+# --- Configuration des Pins ---
+capteur_dht = dht.DHT22(machine.Pin(15))
+adc_sol = machine.ADC(machine.Pin(34))
+adc_sol.atten(machine.ADC.ATTN_11DB)
+pompe_led = machine.Pin(2, machine.Pin.OUT)
+vanne_servo = machine.PWM(machine.Pin(4), freq=50)
+
+SEUIL_HUMIDITE_CRITIQUE = 30.0 
+
+def connect_wifi():
+    print("\n[RÉSEAU] Connexion au Wi-Fi Wokwi-GUEST...")
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+    while not wlan.isconnected():
+        time.sleep(0.5)
+    print("[RÉSEAU] Connecté avec succès !")
+
+def controler_servo(angle):
+    min_duty = 40
+    max_duty = 115
+    duty = int(min_duty + (angle / 180) * (max_duty - min_duty))
+    vanne_servo.duty(duty)
+
+def lire_capteurs():
+    try:
+        capteur_dht.measure()
+        valeur_brute_sol = adc_sol.read()
+        return {
+            "soil_moisture_percent": round((valeur_brute_sol / 4095) * 100, 1),
+            "air_temperature_c": capteur_dht.temperature(),
+            "air_humidity_percent": capteur_dht.humidity()
+        }
+    except Exception:
+        return None
+
+def main():
+    print("Démarrage du Nœud IoT SmartSouss-Agri...")
+    controler_servo(0)
+    pompe_led.value(0)
+    
+    connect_wifi()
+    
+    while True:
+        donnees = lire_capteurs()
+        
+        if donnees:
+            humidite_actuelle = donnees["soil_moisture_percent"]
+            pompe_status = False
+            
+            # --- Edge Computing : Automatisation Locale ---
+            if humidite_actuelle < SEUIL_HUMIDITE_CRITIQUE:
+                pompe_led.value(1)
+                controler_servo(90)
+                pompe_status = True
+            else:
+                pompe_led.value(0)
+                controler_servo(0)
+            
+           # --- Format JSON adapté à l'API de Laila ---
+            payload = {
+                "device_id": "node_souss_agri_01",
+                "sensors": {
+                    "soil_moisture_percent": humidite_actuelle,
+                    "air_temperature_c": donnees["air_temperature_c"],
+                    "air_humidity_percent": capteur_dht.humidity()
+                }
+            }
+            
+            json_data = json.dumps(payload)
+            print(f"\n[INFO] Données lues : {json_data}")
+            
+            # --- Envoi HTTP vers l'API Flask ---
+            try:
+                # ⚠️ ZEDNA L'HEADER DIAL NGROK HNA BACH MA YBLOCINACH
+                headers = {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                }
+                reponse = urequests.post(API_URL, headers=headers, data=json_data)
+                print(f"✅ [HTTP] Statut de l'envoi : {reponse.status_code}")
+                reponse.close()
+            except Exception as e:
+                # ⚠️ ZEDNA 'e' BACH Y-AFFICHI LINA L'ERREUR EXACTE
+                print(f"❌ [HTTP] ERREUR : {e}")
+                
+        time.sleep(5)
+
+if __name__ == "__main__":
+    print(">>> PROGRAMME LANCÉ <<<")
+    main()
