@@ -15,7 +15,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone  # ✅ ajouté
 
 from .forms import CustomUserCreationForm, UserUpdateForm, ProfileUpdateForm
-from .models import History, SensorData
+from .models import Profile, History, SensorData
+from .grpc_client import call_predict_disease, call_predict_water
 
 from . import plant_pb2
 from . import plant_pb2_grpc
@@ -59,7 +60,7 @@ def logout_view(request):
 
 @login_required
 def dashbord(request):
-    profile = request.user.profile
+    profile, _ = Profile.objects.get_or_create(user=request.user)
     latest_sensor = SensorData.objects.order_by('-timestamp').first()
     
     # If no data exists, provide fallback defaults for UI
@@ -88,58 +89,53 @@ def analyze_image(request):
     if request.method == "POST" and request.FILES.get("image"):
         image = request.FILES["image"]
 
-        # 1. Safe storage handling for Serverless / Vercel
-        filename = image.name
-        try:
-            fs = FileSystemStorage(location=settings.MEDIA_ROOT, base_url=settings.MEDIA_URL)
-            filename = fs.save(image.name, image)
-            image_url = fs.url(filename)
-        except Exception as e:
-            print("File save warning:", e)
-            filename = image.name
-
+        # Read image bytes for gRPC inference
         image.seek(0)
         image_bytes = image.read()
 
-        # 2. Base64 Preview: Guarantees the uploaded image renders in the browser on Vercel
+        # 1. Base64 Preview: Provides instant feedback in the browser
         try:
             encoded = base64.b64encode(image_bytes).decode('utf-8')
             c_type = getattr(image, 'content_type', None) or 'image/jpeg'
             image_url = f"data:{c_type};base64,{encoded}"
-        except Exception:
-            pass
-
-        # 3. Call gRPC service (with timeout and fallback message)
-        grpc_host = os.environ.get('GRPC_AI_HOST', 'localhost:50051')
-        try:
-            with grpc.insecure_channel(grpc_host) as channel:
-                stub = plant_pb2_grpc.PlantServiceStub(channel)
-                grpc_request = plant_pb2.PlantRequest(image=image_bytes)
-                grpc_response = stub.PredictDisease(grpc_request, timeout=3)
-
-                confidence_percent = int(grpc_response.confidence * 100)
-                result = f"{grpc_response.prediction} ({confidence_percent}%)"
-                disease_type = grpc_response.disease_type
-                treatment = grpc_response.treatment
-
         except Exception as e:
+            print("[Base64 Warning]:", e)
+
+        # 2. Call gRPC service (supports dynamic host, SSL/TLS, timeouts)
+        success, ai_data, error_msg = call_predict_disease(image_bytes, timeout=10)
+
+        if success and ai_data:
+            result = ai_data["result"]
+            disease_type = ai_data["disease_type"]
+            treatment = ai_data["treatment"]
+        else:
             result = "AI Model Unreachable (gRPC offline)"
             disease_type = "Distributed AI Service"
-            treatment = "The PyTorch AI inference runs in a separate gRPC microservice (ai_service/server.py). Connect your AI server URL or run it locally to see real-time disease detections."
-            print("gRPC error:", e)
+            treatment = (
+                "The PyTorch AI inference runs in a separate gRPC microservice (ai_service/server.py). "
+                "Connect your AI server URL via GRPC_AI_HOST or run it locally to see real-time disease detections."
+            )
+            if error_msg:
+                print(f"[Analyze Image Error] {error_msg}")
 
+        # 3. Persistent Storage in History:
+        # Rewind image stream so Django's storage backend (Cloudinary or local) can upload and save it!
+        image.seek(0)
         try:
-            History.objects.create(
+            history_record = History.objects.create(
                 user=request.user,
-                image=filename,
+                image=image,  # Pass the UploadedFile object!
                 result=result,
                 disease_type=disease_type,
                 treatment=treatment
             )
+            # Use persistent storage URL if available
+            if history_record.image and hasattr(history_record.image, 'url'):
+                image_url = history_record.image.url
         except Exception as e:
-            print("History save warning:", e)
+            print("[History Save Error]:", e)
 
-    profile = request.user.profile
+    profile, _ = Profile.objects.get_or_create(user=request.user)
     return render(request, 'base/analyze.html', {
         "result": result,
         "disease_type": disease_type,
@@ -154,7 +150,7 @@ def analyze_image(request):
 @login_required
 def history(request):
     items = History.objects.filter(user=request.user).order_by('-id')
-    profile = request.user.profile
+    profile, _ = Profile.objects.get_or_create(user=request.user)
 
     paginator = Paginator(items, 5)
     page = request.GET.get('page')
@@ -197,7 +193,7 @@ def clear_all_history(request):
 @login_required
 def edit_profile(request):
     user = request.user
-    profile = user.profile
+    profile, _ = Profile.objects.get_or_create(user=user)
 
     if request.method == "POST":
         user_form = UserUpdateForm(request.POST, instance=user)
@@ -288,7 +284,7 @@ def optimization_dashboard(request):
     else:
         avg_temp, avg_hum, avg_soil = 25.0, 50.0, 40.0
 
-    # Linear Regression Formula for Water Need (7-day forecast in Liters):
+    # 1. Fallback Heuristic Linear Regression Formula (7-day forecast in Liters):
     # base_water = 5.0L + (Temp * 0.2) - (Hum * 0.05) - (Moisture * 0.1)
     base_water = 5.0
     temp_factor = avg_temp * 0.2
@@ -297,30 +293,19 @@ def optimization_dashboard(request):
     calculated_water = round(max(0.5, base_water + temp_factor - humidity_factor - moisture_factor), 2)
     predicted_water = calculated_water
 
-    # If gRPC server is available, fetch live prediction
-    try:
-        grpc_host = os.environ.get('GRPC_AI_HOST', 'localhost:50051')
-        with grpc.insecure_channel(grpc_host) as channel:
-            stub = plant_pb2_grpc.PlantServiceStub(channel)
-            grpc_req = plant_pb2.WaterRequest(
-                avg_temperature=avg_temp,
-                avg_humidity=avg_hum,
-                avg_soil_moisture=avg_soil
-            )
-            grpc_res = stub.PredictWaterNeed(grpc_req, timeout=2)
-            if grpc_res.predicted_water_liters > 0:
-                predicted_water = grpc_res.predicted_water_liters
-    except Exception as e:
-        # Fallback to local linear regression formula
-        predicted_water = calculated_water
+    # 2. Call gRPC service if reachable
+    success, liters, error_msg = call_predict_water(avg_temp, avg_hum, avg_soil, timeout=3)
+    if success and liters is not None and liters > 0:
+        predicted_water = liters
 
+    profile, _ = Profile.objects.get_or_create(user=request.user)
     return render(request, 'base/optimization.html', {
         'sensor_history': sensor_history,
         'predicted_water': predicted_water,
         'avg_temp': round(avg_temp, 1),
         'avg_hum': round(avg_hum, 1),
         'avg_soil': round(avg_soil, 1),
-        'profile': request.user.profile
+        'profile': profile
     })
 
 

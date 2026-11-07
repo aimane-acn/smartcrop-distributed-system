@@ -1,3 +1,14 @@
+import os
+import sys
+from pathlib import Path
+
+# Safe UTF-8 output handling for cross-platform terminals (Windows/Linux)
+try:
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 import grpc
 from concurrent import futures
 import time
@@ -13,9 +24,10 @@ import plant_pb2_grpc
 from disease_info import DISEASE_INFO
 
 # --- CONFIGURATION ---
-# katshuf wash 3ndk gpu cuda(nvidia) hit models kaytrunaw faster fiha ila la sir l cpu
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-MODEL_PATH = "plant_disease_resnet18.pth"
+BASE_DIR = Path(__file__).resolve().parent
+DEFAULT_MODEL_PATH = BASE_DIR / "plant_disease_resnet18.pth"
+MODEL_PATH = Path(os.environ.get("MODEL_PATH", str(DEFAULT_MODEL_PATH)))
 
 # class names b mn A l Z hit model kaybdl tritb b alphabet
 CLASS_NAMES = [
@@ -124,15 +136,27 @@ class PlantService(plant_pb2_grpc.PlantServiceServicer):
         return plant_pb2.WaterResponse(predicted_water_liters=predicted_water)
 
 def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    port = int(os.environ.get("PORT", 50051))
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=10),
+        options=[
+            ('grpc.max_receive_message_length', 50 * 1024 * 1024),
+            ('grpc.max_send_message_length', 50 * 1024 * 1024),
+        ]
+    )
     plant_pb2_grpc.add_PlantServiceServicer_to_server(PlantService(), server)
-    server.add_insecure_port("[::]:50051")
+    
+    # Listen on all IPv4 and IPv6 network interfaces
+    bind_address = f"0.0.0.0:{port}"
+    server.add_insecure_port(bind_address)
     server.start()
-    print("🚀 gRPC Server listening on port 50051...")
+    print(f"🚀 gRPC Server successfully started and listening on {bind_address} (PORT={port})...")
+    print("👉 Ready to accept incoming plant analysis requests.")
     try:
         while True:
             time.sleep(86400)
     except KeyboardInterrupt:
+        print("\nStopping gRPC Server...")
         server.stop(0)
 
 if __name__ == "__main__":

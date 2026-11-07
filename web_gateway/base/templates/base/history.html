@@ -34,7 +34,7 @@
                     <tr>
                         <td class="p-4">
                             <div class="d-flex align-items-center">
-                                <img src="{{ item.image.url }}" class="rounded-4 shadow-sm me-3" width="80" height="60" style="object-fit: cover;">
+                                <img src="{{ item.image.url }}" class="rounded-4 shadow-sm me-3" width="80" height="60" style="object-fit: cover;" onerror="this.onerror=null; this.src='{% static 'images/leaf.jpg' %}';">
                                 <span class="fw-bold text-dark">ID: #{{ item.id }}</span>
                             </div>
                         </td>

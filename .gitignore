@@ -20,6 +20,7 @@ web_gateway/media/*
 *.pth
 *.pt
 *.h5
+!ai_service/plant_disease_resnet18.pth
 
 # Editor & OS files
 .vscode/
