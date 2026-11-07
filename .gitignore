@@ -13,8 +13,6 @@ myenv/
 */myenv/
 
 # Database & media
-*.sqlite3
-db.sqlite3
 web_gateway/media/*
 !web_gateway/media/.gitkeep
 

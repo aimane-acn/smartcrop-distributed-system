@@ -64,16 +64,41 @@ WSGI_APPLICATION = 'distributed_system.wsgi.application'
 
 # FIX 2: Hybrid Database Logic (Secure)
 # ---------------------------------------------------------
-# By default, use SQLite (for your PC/Offline)
+# Check if running on Vercel (read-only environment)
+IS_VERCEL = 'VERCEL' in os.environ
+
+if IS_VERCEL:
+    import shutil
+    tmp_db = Path('/tmp/db.sqlite3')
+    
+    # Locate existing sqlite file to initialize /tmp
+    possible_sources = [
+        BASE_DIR / 'db.sqlite3',
+        BASE_DIR / 'web_gateway' / 'db.sqlite3',
+        Path(__file__).resolve().parent.parent / 'db.sqlite3',
+        Path(__file__).resolve().parent.parent.parent / 'db.sqlite3',
+    ]
+    
+    if not tmp_db.exists():
+        for src in possible_sources:
+            if src.exists():
+                try:
+                    shutil.copy2(src, tmp_db)
+                    break
+                except Exception:
+                    pass
+    db_name = tmp_db
+else:
+    db_name = BASE_DIR / 'db.sqlite3'
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': db_name,
     }
 }
 
-# If we are on Render, 'DATABASE_URL' will exist.
-# We overwrite the default with the Cloud DB automatically.
+# If DATABASE_URL exists (e.g. Postgres on Render or Neon/Supabase), use it automatically
 database_url = os.environ.get("DATABASE_URL")
 if database_url:
     DATABASES["default"] = dj_database_url.parse(database_url)
