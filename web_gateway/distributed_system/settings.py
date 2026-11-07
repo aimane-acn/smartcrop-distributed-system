@@ -131,3 +131,14 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # STATICFILES_DIRS =[BASE_DIR / 'static']  <-- Uncomment this if you have a custom static folder
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Authentication URLs
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashbord'
+LOGOUT_REDIRECT_URL = 'home'
+
+# Serverless Session Handling (Signed Cookies)
+# Keeps the user logged in across multiple Vercel Lambda instances
+SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 1209600  # 2 weeks
