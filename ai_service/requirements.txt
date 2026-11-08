@@ -9,7 +9,9 @@ networkx==3.6.1
 numpy>=1.26.0
 pillow>=10.0.0
 protobuf>=4.25.0
-sympy==1.14.0
-torch>=2.0.0
-torchvision>=0.15.0
+sympy==1.13.1
+torch==2.5.1+cpu
+torchvision==0.20.1+cpu
 typing_extensions>=4.8.0
+flask>=3.0.0
+gunicorn>=23.0.0

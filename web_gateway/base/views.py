@@ -102,18 +102,18 @@ def analyze_image(request):
             print("[Base64 Warning]:", e)
 
         # 2. Call gRPC service (supports dynamic host, SSL/TLS, timeouts)
-        success, ai_data, error_msg = call_predict_disease(image_bytes, timeout=10)
+        success, ai_data, error_msg = call_predict_disease(image_bytes, timeout=90)
 
         if success and ai_data:
             result = ai_data["result"]
             disease_type = ai_data["disease_type"]
             treatment = ai_data["treatment"]
         else:
-            result = "AI Model Unreachable (gRPC offline)"
+            result = "AI Service Unavailable"
             disease_type = "Distributed AI Service"
             treatment = (
-                "The PyTorch AI inference runs in a separate gRPC microservice (ai_service/server.py). "
-                "Connect your AI server URL via GRPC_AI_HOST or run it locally to see real-time disease detections."
+                "The AI prediction service is currently unavailable. "
+                "Please try again later."
             )
             if error_msg:
                 print(f"[Analyze Image Error] {error_msg}")
@@ -294,7 +294,7 @@ def optimization_dashboard(request):
     predicted_water = calculated_water
 
     # 2. Call gRPC service if reachable
-    success, liters, error_msg = call_predict_water(avg_temp, avg_hum, avg_soil, timeout=3)
+    success, liters, error_msg = call_predict_water(avg_temp, avg_hum, avg_soil, timeout=30)
     if success and liters is not None and liters > 0:
         predicted_water = liters
 

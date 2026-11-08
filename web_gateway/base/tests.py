@@ -3,8 +3,88 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.conf import settings
 from .models import Profile, History, SensorData
-from .grpc_client import get_grpc_target_and_ssl
+from .grpc_client import (
+    get_grpc_target_and_ssl,
+    get_ai_service_url,
+    call_predict_disease,
+    call_predict_water
+)
+from unittest.mock import patch, MagicMock
 import os
+
+
+class AIClientRoutingTests(TestCase):
+    def test_ai_service_url_normalization(self):
+        # Empty
+        if 'AI_SERVICE_URL' in os.environ:
+            del os.environ['AI_SERVICE_URL']
+        self.assertIsNone(get_ai_service_url())
+
+        # URL without scheme
+        os.environ['AI_SERVICE_URL'] = 'smartcrop-ai.onrender.com'
+        self.assertEqual(get_ai_service_url(), 'https://smartcrop-ai.onrender.com')
+
+        # URL with trailing slash and https
+        os.environ['AI_SERVICE_URL'] = 'https://smartcrop-ai.onrender.com/'
+        self.assertEqual(get_ai_service_url(), 'https://smartcrop-ai.onrender.com')
+
+        # Cleanup
+        del os.environ['AI_SERVICE_URL']
+
+    @patch('requests.post')
+    def test_http_disease_prediction_success(self, mock_post):
+        os.environ['AI_SERVICE_URL'] = 'https://smartcrop-ai.onrender.com'
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "prediction": "Tomato___Early_blight",
+            "confidence": 0.94,
+            "confidence_percent": 94,
+            "result": "Tomato___Early_blight (94%)",
+            "disease_type": "Fungal Disease",
+            "treatment": "Apply copper-based fungicide."
+        }
+        mock_post.return_value = mock_resp
+
+        success, data, err = call_predict_disease(b'fake_image_bytes')
+        self.assertTrue(success)
+        self.assertIsNone(err)
+        self.assertEqual(data["prediction"], "Tomato___Early_blight")
+        self.assertEqual(data["confidence_percent"], 94)
+
+        del os.environ['AI_SERVICE_URL']
+
+    @patch('requests.post')
+    def test_http_water_prediction_success(self, mock_post):
+        os.environ['AI_SERVICE_URL'] = 'https://smartcrop-ai.onrender.com'
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "predicted_water_liters": 3.75
+        }
+        mock_post.return_value = mock_resp
+
+        success, liters, err = call_predict_water(28.0, 50.0, 35.0)
+        self.assertTrue(success)
+        self.assertIsNone(err)
+        self.assertEqual(liters, 3.75)
+
+        del os.environ['AI_SERVICE_URL']
+
+    @patch('requests.post')
+    def test_http_prediction_failure_handled(self, mock_post):
+        os.environ['AI_SERVICE_URL'] = 'https://smartcrop-ai.onrender.com'
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        mock_resp.text = "Internal Model Error"
+        mock_post.return_value = mock_resp
+
+        success, data, err = call_predict_disease(b'fake_image_bytes')
+        self.assertFalse(success)
+        self.assertIsNone(data)
+        self.assertIn("HTTP 500", err)
+
+        del os.environ['AI_SERVICE_URL']
 
 
 class GRPCClientConfigTests(TestCase):
